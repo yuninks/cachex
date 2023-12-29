@@ -1,6 +1,7 @@
 package cachex
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -10,11 +11,12 @@ import (
 // 1.全局单实例
 // 到设定的点就删除
 
-type cache struct{
+type cache struct {
 	store sync.Map
 }
+
 var one sync.Once
-var c cache
+var c *cache
 
 type cacheData struct {
 	key    string
@@ -22,11 +24,13 @@ type cacheData struct {
 	expire time.Time
 }
 
+var ErrorEmpty error = errors.New("empty cache")
+
 func NewCache() *cache {
 	one.Do(func() {
-		c = cache{}
+		c = &cache{}
 
-		go func(){
+		go func() {
 			for {
 				c.store.Range(func(key, value interface{}) bool {
 					if value.(*cacheData).expire.Before(time.Now()) {
@@ -34,32 +38,35 @@ func NewCache() *cache {
 					}
 					return true
 				})
-		
+
 				time.Sleep(time.Second * 5)
 			}
 		}()
 	})
-	return &c
+	return c
 }
 
 // 设置缓存
 func (c *cache) Set(key string, value interface{}, expire time.Duration) {
+	if expire == 0 {
+		expire = time.Hour * 24 * 365
+	}
 	cd := &cacheData{key, value, time.Now().Add(expire)}
 	c.store.Store(key, cd)
 }
 
 // 读取缓存
-func (c *cache) Get(key string) interface{} {
+func (c *cache) Get(key string) (interface{}, error) {
 	if v, ok := c.store.Load(key); ok {
 
 		cc := v.(*cacheData)
 		if cc.expire.Before(time.Now()) {
 			c.store.Delete(key)
-			return nil
+			return nil, ErrorEmpty
 		}
-		return cc.data
+		return cc.data, nil
 	}
-	return nil
+	return nil, ErrorEmpty
 }
 
 // 删除缓存
