@@ -11,10 +11,10 @@ import (
 func TestCache(t *testing.T) {
 	cachex.NewCache().Set("test", "test", time.Second*5)
 
-	da := cachex.NewCache().Get("test")
-	fmt.Println(da)
+	da, err := cachex.NewCache().Get("test")
+	fmt.Println(da, err)
 
-	time.Sleep(time.Second *5)
-	da = cachex.NewCache().Get("test")
-	fmt.Println(da)
+	time.Sleep(time.Second * 5)
+	da, err = cachex.NewCache().Get("test")
+	fmt.Println(da, err)
 }
