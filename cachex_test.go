@@ -9,12 +9,14 @@ import (
 )
 
 func TestCache(t *testing.T) {
-	cachex.NewCache("").Set("test", "test", time.Second*5)
+	c := cachex.NewCache("")
 
-	da, err := cachex.NewCache("").Get("test")
+	c.Set("test", "test", time.Second*5)
+
+	da, err := c.Get("test")
 	fmt.Println(da, err)
 
 	time.Sleep(time.Second * 5)
-	da, err = cachex.NewCache("").Get("test")
+	da, err = c.Get("test")
 	fmt.Println(da, err)
 }
