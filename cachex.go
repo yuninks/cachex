@@ -13,11 +13,8 @@ import (
 
 type cache struct {
 	prefix string
+	store  sync.Map
 }
-
-var one sync.Once
-var c *cache
-var store sync.Map
 
 type cacheData struct {
 	key    string
@@ -29,24 +26,22 @@ var ErrorEmpty error = errors.New("empty cache")
 
 func NewCache(prefix string) *cache {
 
-	c = &cache{
+	c := &cache{
 		prefix: prefix,
 	}
 
-	one.Do(func() {
+	go func() {
+		for {
+			c.store.Range(func(key, value interface{}) bool {
+				if value.(*cacheData).expire.Before(time.Now()) {
+					c.store.Delete(key)
+				}
+				return true
+			})
+			time.Sleep(time.Second * 5)
+		}
+	}()
 
-		go func() {
-			for {
-				store.Range(func(key, value interface{}) bool {
-					if value.(*cacheData).expire.Before(time.Now()) {
-						store.Delete(key)
-					}
-					return true
-				})
-				time.Sleep(time.Second * 5)
-			}
-		}()
-	})
 	return c
 }
 
@@ -57,17 +52,17 @@ func (c *cache) Set(key string, value interface{}, expire time.Duration) {
 	}
 	cd := &cacheData{key, value, time.Now().Add(expire)}
 	key = c.prefix + key
-	store.Store(key, cd)
+	c.store.Store(key, cd)
 }
 
 // 读取缓存
 func (c *cache) Get(key string) (interface{}, error) {
 	key = c.prefix + key
-	if v, ok := store.Load(key); ok {
+	if v, ok := c.store.Load(key); ok {
 
 		cc := v.(*cacheData)
 		if cc.expire.Before(time.Now()) {
-			store.Delete(key)
+			c.store.Delete(key)
 			return nil, ErrorEmpty
 		}
 		return cc.data, nil
@@ -78,15 +73,15 @@ func (c *cache) Get(key string) (interface{}, error) {
 // 删除缓存
 func (c *cache) Delete(key string) {
 	key = c.prefix + key
-	store.Delete(key)
+	c.store.Delete(key)
 }
 
 // 清空缓存
 func (c *cache) Clear() {
-	store.Range(func(key, value interface{}) bool {
+	c.store.Range(func(key, value interface{}) bool {
 		// 根据前缀删除
 		if key.(string)[:len(c.prefix)] == c.prefix {
-			store.Delete(key)
+			c.store.Delete(key)
 		}
 		return true
 	})
