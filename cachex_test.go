@@ -9,7 +9,7 @@ import (
 )
 
 func TestCache(t *testing.T) {
-	c := cachex.NewCache("")
+	c := cachex.NewCache()
 
 	c.Set("test", "test", time.Second*5)
 
