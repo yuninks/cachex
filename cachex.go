@@ -11,7 +11,7 @@ import (
 // 1.全局单实例
 // 到设定的点就删除
 
-type cache struct {
+type Cache struct {
 	store sync.Map
 }
 
@@ -23,9 +23,9 @@ type cacheData struct {
 
 var ErrorEmpty error = errors.New("empty cache")
 
-func NewCache() *cache {
+func NewCache() *Cache {
 
-	c := &cache{}
+	c := &Cache{}
 
 	go func() {
 		for {
@@ -43,7 +43,7 @@ func NewCache() *cache {
 }
 
 // 设置缓存
-func (c *cache) Set(key string, value interface{}, expire time.Duration) {
+func (c *Cache) Set(key string, value interface{}, expire time.Duration) {
 	if expire == 0 {
 		expire = time.Hour * 24 * 365
 	}
@@ -52,7 +52,7 @@ func (c *cache) Set(key string, value interface{}, expire time.Duration) {
 }
 
 // 读取缓存
-func (c *cache) Get(key string) (interface{}, error) {
+func (c *Cache) Get(key string) (interface{}, error) {
 	if v, ok := c.store.Load(key); ok {
 
 		cc := v.(*cacheData)
@@ -66,12 +66,12 @@ func (c *cache) Get(key string) (interface{}, error) {
 }
 
 // 删除缓存
-func (c *cache) Delete(key string) {
+func (c *Cache) Delete(key string) {
 	c.store.Delete(key)
 }
 
 // 清空缓存
-func (c *cache) Clear() {
+func (c *Cache) Clear() {
 	c.store.Range(func(key, value interface{}) bool {
 		c.store.Delete(key)
 		return true
