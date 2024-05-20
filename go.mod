@@ -1,3 +1,3 @@
-module "code.yun.ink/pkg/cachex"
+module "github.com/yuninks/cachex"
 
 go 1.19

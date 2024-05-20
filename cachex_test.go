@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"code.yun.ink/pkg/cachex"
+	"github.com/yuninks/cachex"
 )
 
 func TestCache(t *testing.T) {
