@@ -1,6 +1,7 @@
 package cachex
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"time"
@@ -12,7 +13,8 @@ import (
 // 到设定的点就删除
 
 type Cache struct {
-	store sync.Map
+	store  sync.Map
+	cancel context.CancelFunc
 }
 
 type cacheData struct {
@@ -24,18 +26,28 @@ type cacheData struct {
 var ErrorEmpty error = errors.New("empty cache")
 
 func NewCache() *Cache {
-
-	c := &Cache{}
+	ctx, cancel := context.WithCancel(context.Background())
+	c := &Cache{cancel: cancel}
 
 	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
 		for {
-			c.store.Range(func(key, value interface{}) bool {
-				if value.(*cacheData).expire.Before(time.Now()) {
-					c.store.Delete(key)
-				}
-				return true
-			})
-			time.Sleep(time.Second * 5)
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				c.store.Range(func(key, value interface{}) bool {
+					cd, ok := value.(*cacheData)
+					if !ok {
+						return true
+					}
+					if cd.expire.Before(time.Now()) {
+						c.store.Delete(key)
+					}
+					return true
+				})
+			}
 		}
 	}()
 
@@ -54,8 +66,10 @@ func (c *Cache) Set(key string, value interface{}, expire time.Duration) {
 // 读取缓存
 func (c *Cache) Get(key string) (interface{}, error) {
 	if v, ok := c.store.Load(key); ok {
-
-		cc := v.(*cacheData)
+		cc, ok := v.(*cacheData)
+		if !ok {
+			return nil, ErrorEmpty
+		}
 		if cc.expire.Before(time.Now()) {
 			c.store.Delete(key)
 			return nil, ErrorEmpty
@@ -76,4 +90,11 @@ func (c *Cache) Clear() {
 		c.store.Delete(key)
 		return true
 	})
+}
+
+// 关闭缓存，停止清理协程
+func (c *Cache) Close() {
+	if c.cancel != nil {
+		c.cancel()
+	}
 }
