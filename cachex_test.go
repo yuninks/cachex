@@ -1,6 +1,7 @@
 package cachex_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 )
 
 func TestCacheSetGet(t *testing.T) {
-	c := cachex.NewCache()
+	c := cachex.NewCacheLocal()
 	defer c.Close()
 
 	c.Set("test", "test", 100*time.Millisecond)
@@ -23,7 +24,7 @@ func TestCacheSetGet(t *testing.T) {
 }
 
 func TestCacheExpiration(t *testing.T) {
-	c := cachex.NewCache()
+	c := cachex.NewCacheLocal()
 	defer c.Close()
 
 	c.Set("test", "test", 100*time.Millisecond)
@@ -38,7 +39,7 @@ func TestCacheExpiration(t *testing.T) {
 }
 
 func TestCacheDelete(t *testing.T) {
-	c := cachex.NewCache()
+	c := cachex.NewCacheLocal()
 	defer c.Close()
 
 	c.Set("test", "value", time.Hour)
@@ -50,7 +51,7 @@ func TestCacheDelete(t *testing.T) {
 }
 
 func TestCacheClear(t *testing.T) {
-	c := cachex.NewCache()
+	c := cachex.NewCacheLocal()
 	defer c.Close()
 
 	c.Set("key1", "value1", time.Hour)
@@ -65,7 +66,7 @@ func TestCacheClear(t *testing.T) {
 }
 
 func TestCacheDefaultExpiration(t *testing.T) {
-	c := cachex.NewCache()
+	c := cachex.NewCacheLocal()
 	defer c.Close()
 
 	c.Set("test", "value", 0)
@@ -79,11 +80,22 @@ func TestCacheDefaultExpiration(t *testing.T) {
 }
 
 func TestCacheNonExistentKey(t *testing.T) {
-	c := cachex.NewCache()
+	c := cachex.NewCacheLocal()
 	defer c.Close()
 
 	_, err := c.Get("nonexistent")
 	if err == nil {
 		t.Error("Expected error for nonexistent key")
+	}
+}
+
+// 没命中缓存
+func TestCacheMiss(t *testing.T) {
+	c := cachex.NewCacheLocal()
+	defer c.Close()
+
+	_, err := c.Get("nonexistent")
+	if err != nil && !errors.Is(err, cachex.ErrorEmpty) {
+		t.Errorf("Expected error to be of type ErrorEmpty, got %v", err)
 	}
 }

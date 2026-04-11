@@ -2,6 +2,7 @@ package cachex
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -12,22 +13,22 @@ import (
 // 1.全局单实例
 // 到设定的点就删除
 
-type Cache struct {
+type CacheLocal struct {
 	store  sync.Map
 	cancel context.CancelFunc
 }
 
 type cacheData struct {
 	key    string
-	data   interface{}
+	data   any
 	expire time.Time
 }
 
 var ErrorEmpty error = errors.New("empty cache")
 
-func NewCache() *Cache {
+func NewCacheLocal() *CacheLocal {
 	ctx, cancel := context.WithCancel(context.Background())
-	c := &Cache{cancel: cancel}
+	c := &CacheLocal{cancel: cancel}
 
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
@@ -37,7 +38,7 @@ func NewCache() *Cache {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				c.store.Range(func(key, value interface{}) bool {
+				c.store.Range(func(key, value any) bool {
 					cd, ok := value.(*cacheData)
 					if !ok {
 						return true
@@ -55,7 +56,7 @@ func NewCache() *Cache {
 }
 
 // 设置缓存
-func (c *Cache) Set(key string, value interface{}, expire time.Duration) {
+func (c *CacheLocal) Set(key string, value any, expire time.Duration) {
 	if expire == 0 {
 		expire = time.Hour * 24 * 365
 	}
@@ -64,7 +65,7 @@ func (c *Cache) Set(key string, value interface{}, expire time.Duration) {
 }
 
 // 读取缓存
-func (c *Cache) Get(key string) (interface{}, error) {
+func (c *CacheLocal) Get(key string) (any, error) {
 	if v, ok := c.store.Load(key); ok {
 		cc, ok := v.(*cacheData)
 		if !ok {
@@ -79,21 +80,36 @@ func (c *Cache) Get(key string) (interface{}, error) {
 	return nil, ErrorEmpty
 }
 
+// 根据结构体体反射读取缓存 dest必须是指针类型
+func (c *CacheLocal) GetStruct(key string, dest any) error {
+
+	v, err := c.Get(key)
+	if err != nil {
+		return err
+	}
+	jsonBytes, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(jsonBytes, dest)
+}
+
 // 删除缓存
-func (c *Cache) Delete(key string) {
+func (c *CacheLocal) Delete(key string) {
 	c.store.Delete(key)
 }
 
 // 清空缓存
-func (c *Cache) Clear() {
-	c.store.Range(func(key, value interface{}) bool {
+func (c *CacheLocal) Clear() {
+	c.store.Range(func(key, value any) bool {
 		c.store.Delete(key)
 		return true
 	})
 }
 
 // 关闭缓存，停止清理协程
-func (c *Cache) Close() {
+func (c *CacheLocal) Close() {
 	if c.cancel != nil {
 		c.cancel()
 	}
